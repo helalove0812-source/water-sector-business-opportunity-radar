@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>{{ item.tender.title }}</h1>
+<p>地区：{{ item.tender.city or "-" }}</p>
+<p>评分：{{ item.score }}</p>
+<p>等级：{{ item.level }}</p>
+<p>推荐原因：{{ item.reason }}</p>
+<div>{{ item.tender.content }}</div>
+
+<h2>跟进备注</h2>
+<form method="post" action="/opportunities/{{ item.id }}/follow">
+  <textarea name="note"></textarea>
+  <button type="submit">保存跟进备注</button>
+</form>
+
+<ul>
+  {% for log in logs %}
+  <li>{{ log.created_by }}: {{ log.note }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

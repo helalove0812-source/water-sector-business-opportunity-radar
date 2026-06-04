@@ -1,7 +1,7 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from app.models import Keyword
+from app.models import FollowLog, Keyword, Opportunity
 
 
 def list_keywords(session: Session) -> list[Keyword]:
@@ -18,3 +18,49 @@ def create_keyword(
     session.commit()
     session.refresh(keyword)
     return keyword
+
+
+def list_opportunities(session: Session) -> list[Opportunity]:
+    return (
+        session.execute(
+            select(Opportunity)
+            .options(joinedload(Opportunity.tender))
+            .order_by(Opportunity.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
+def get_opportunity(session: Session, opportunity_id: int) -> Opportunity:
+    return session.execute(
+        select(Opportunity)
+        .options(joinedload(Opportunity.tender))
+        .where(Opportunity.id == opportunity_id)
+    ).scalar_one()
+
+
+def list_follow_logs(session: Session, opportunity_id: int) -> list[FollowLog]:
+    return (
+        session.execute(
+            select(FollowLog)
+            .where(FollowLog.opportunity_id == opportunity_id)
+            .order_by(FollowLog.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
+def add_follow_log(
+    session: Session, opportunity_id: int, note: str, created_by: str
+) -> FollowLog:
+    row = FollowLog(
+        opportunity_id=opportunity_id,
+        note=note,
+        created_by=created_by,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>商机列表</h1>
+<table>
+  <thead>
+    <tr>
+      <th>项目</th>
+      <th>地区</th>
+      <th>评分</th>
+      <th>等级</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td><a href="/opportunities/{{ item.id }}">{{ item.tender.title }}</a></td>
+      <td>{{ item.tender.city or "-" }}</td>
+      <td>{{ item.score }}</td>
+      <td>{{ item.level }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
