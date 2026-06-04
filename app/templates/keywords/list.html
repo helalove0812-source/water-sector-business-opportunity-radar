@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>关键词管理</h1>
+<form method="post" action="/keywords">
+  <input name="word" />
+  <select name="category">
+    <option value="A">A</option>
+    <option value="B">B</option>
+    <option value="C">C</option>
+    <option value="D">D</option>
+  </select>
+  <input name="weight" type="number" />
+  <input name="enabled" type="checkbox" checked />
+  <button type="submit">保存</button>
+</form>
+<ul>
+  {% for keyword in keywords %}
+  <li>{{ keyword.word }} - {{ keyword.category }} - {{ keyword.weight }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}
