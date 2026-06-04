@@ -38,13 +38,7 @@ def ingest_tender(session, tender_data: dict) -> Optional[Opportunity]:
         return None
 
     focus_result = detect_focus_account(tender_data)
-    result = score_tender(tender_data, matches)
-    if focus_result["is_focus_account"]:
-        focus_reason = f"重点客户:{focus_result['focus_company_group']}"
-        if focus_reason not in result["reason"]:
-            result["reason"] = "，".join(
-                part for part in [result["reason"], focus_reason] if part
-            )
+    result = score_tender(tender_data, matches, focus_result=focus_result)
     tender = session.execute(
         select(Tender).where(Tender.source_url == tender_data["source_url"])
     ).scalar_one_or_none()
