@@ -1,5 +1,6 @@
 import hashlib
 import json
+from typing import Optional
 
 from sqlalchemy import select
 
@@ -19,7 +20,23 @@ def _build_content_hash(tender_data: dict) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def ingest_tender(session, tender_data: dict) -> Opportunity:
+def _has_required_a_match(matches: list[dict]) -> bool:
+    return any(item.get("category") == "A" for item in matches)
+
+
+def ingest_tender(session, tender_data: dict) -> Optional[Opportunity]:
+    keywords = session.execute(
+        select(Keyword).where(Keyword.enabled.is_(True))
+    ).scalars().all()
+    keyword_dicts = [
+        {"word": item.word, "category": item.category, "weight": item.weight}
+        for item in keywords
+    ]
+    matches = match_keywords(tender_data, keyword_dicts)
+    if not _has_required_a_match(matches):
+        return None
+
+    result = score_tender(tender_data, matches)
     tender = session.execute(
         select(Tender).where(Tender.source_url == tender_data["source_url"])
     ).scalar_one_or_none()
@@ -34,16 +51,6 @@ def ingest_tender(session, tender_data: dict) -> Opportunity:
             setattr(tender, field, value)
         tender.content_hash = content_hash
         session.flush()
-
-    keywords = session.execute(
-        select(Keyword).where(Keyword.enabled.is_(True))
-    ).scalars().all()
-    keyword_dicts = [
-        {"word": item.word, "category": item.category, "weight": item.weight}
-        for item in keywords
-    ]
-    matches = match_keywords(tender_data, keyword_dicts)
-    result = score_tender(tender_data, matches)
 
     opportunity = session.execute(
         select(Opportunity).where(Opportunity.tender_id == tender.id)

@@ -67,6 +67,86 @@ def test_ingest_tender_deduplicates_tender_and_creates_single_opportunity() -> N
             session.commit()
 
 
+def test_ingest_tender_skips_notice_without_a_category_match() -> None:
+    init_db()
+    unrelated_detail = {
+        "source": "fixture-source",
+        "source_url": "https://example.com/unrelated-1",
+        "title": "东莞市税务局语音通知外包服务项目",
+        "city": "东莞",
+        "publish_date": None,
+        "deadline": None,
+        "buyer_name": None,
+        "agency_name": None,
+        "budget_amount": None,
+        "content": "该项目为语音通知外包服务，与水箱设备无关",
+    }
+
+    with SessionLocal() as session:
+        session.query(Opportunity).delete()
+        session.query(Tender).delete()
+        session.query(Keyword).delete()
+        session.commit()
+
+        try:
+            session.add(Keyword(word="不锈钢水箱", category="A", weight=35, enabled=True))
+            session.add(Keyword(word="二次供水", category="B", weight=15, enabled=True))
+            session.commit()
+
+            created = ingest_tender(session, unrelated_detail)
+            tender_count = session.execute(select(func.count(Tender.id))).scalar_one()
+            opportunity_count = session.execute(select(func.count(Opportunity.id))).scalar_one()
+
+            assert created is None
+            assert tender_count == 0
+            assert opportunity_count == 0
+        finally:
+            session.query(Opportunity).delete()
+            session.query(Tender).delete()
+            session.query(Keyword).delete()
+            session.commit()
+
+
+def test_ingest_tender_skips_notice_when_only_city_matches() -> None:
+    init_db()
+    city_only_detail = {
+        "source": "fixture-source",
+        "source_url": "https://example.com/city-only-1",
+        "title": "深圳市某单位信息化运维服务项目",
+        "city": "深圳",
+        "publish_date": None,
+        "deadline": None,
+        "buyer_name": None,
+        "agency_name": None,
+        "budget_amount": None,
+        "content": "项目位于深圳，但不包含水箱、隔油器或二次供水产品需求",
+    }
+
+    with SessionLocal() as session:
+        session.query(Opportunity).delete()
+        session.query(Tender).delete()
+        session.query(Keyword).delete()
+        session.commit()
+
+        try:
+            session.add(Keyword(word="消防水箱", category="A", weight=35, enabled=True))
+            session.add(Keyword(word="二次供水", category="B", weight=15, enabled=True))
+            session.commit()
+
+            created = ingest_tender(session, city_only_detail)
+            tender_count = session.execute(select(func.count(Tender.id))).scalar_one()
+            opportunity_count = session.execute(select(func.count(Opportunity.id))).scalar_one()
+
+            assert created is None
+            assert tender_count == 0
+            assert opportunity_count == 0
+        finally:
+            session.query(Opportunity).delete()
+            session.query(Tender).delete()
+            session.query(Keyword).delete()
+            session.commit()
+
+
 def test_run_crawl_main_fetches_real_source_and_skips_failed_details(monkeypatch) -> None:
     init_db()
 
@@ -110,12 +190,64 @@ def test_run_crawl_main_fetches_real_source_and_skips_failed_details(monkeypatch
         session.query(Tender).delete()
         session.query(Keyword).delete()
         session.commit()
+        session.add(Keyword(word="二次供水水箱", category="A", weight=35, enabled=True))
         session.add(Keyword(word="二次供水", category="B", weight=15, enabled=True))
         session.commit()
 
     monkeypatch.setattr("app.services.crawler_source.fetch_html", fake_fetch_html)
 
     inserted_count = run_crawl_main()
+
+    with SessionLocal() as session:
+        tender_count = session.execute(select(func.count(Tender.id))).scalar_one()
+
+        assert inserted_count == 0
+        assert tender_count == 0
+
+
+def test_run_crawl_main_only_counts_notices_with_a_category_match(monkeypatch) -> None:
+    init_db()
+
+    related_notice = {
+        "source": "hscgfw",
+        "source_url": "http://www.hscgfw.com/doc_6001.html",
+        "title": "东莞市不锈钢水箱采购安装项目公开招标公告",
+        "city": "东莞",
+        "publish_date": None,
+        "deadline": None,
+        "buyer_name": None,
+        "agency_name": None,
+        "budget_amount": None,
+        "content": "本项目采购不锈钢水箱及配套安装服务",
+    }
+    unrelated_notice = {
+        "source": "hscgfw",
+        "source_url": "http://www.hscgfw.com/doc_6002.html",
+        "title": "东莞市食堂外包服务项目公开招标公告",
+        "city": "东莞",
+        "publish_date": None,
+        "deadline": None,
+        "buyer_name": None,
+        "agency_name": None,
+        "budget_amount": None,
+        "content": "本项目为食堂外包服务，与水箱业务无关",
+    }
+
+    def fake_crawl_public_notices(limit: int = 10) -> list[dict]:
+        return [related_notice, unrelated_notice][:limit]
+
+    with SessionLocal() as session:
+        session.query(Opportunity).delete()
+        session.query(Tender).delete()
+        session.query(Keyword).delete()
+        session.commit()
+        session.add(Keyword(word="不锈钢水箱", category="A", weight=35, enabled=True))
+        session.add(Keyword(word="二次供水", category="B", weight=15, enabled=True))
+        session.commit()
+
+    monkeypatch.setattr("scripts.run_crawl.crawl_public_notices", fake_crawl_public_notices)
+
+    inserted_count = run_crawl_main(limit=10)
 
     with SessionLocal() as session:
         tender_count = session.execute(select(func.count(Tender.id))).scalar_one()
@@ -126,4 +258,4 @@ def test_run_crawl_main_fetches_real_source_and_skips_failed_details(monkeypatch
         assert tender_count == 1
         assert opportunity.tender_id == tender.id
         assert tender.source == "hscgfw"
-        assert tender.title == "东莞市二次供水设备采购项目公开招标公告"
+        assert tender.title == "东莞市不锈钢水箱采购安装项目公开招标公告"

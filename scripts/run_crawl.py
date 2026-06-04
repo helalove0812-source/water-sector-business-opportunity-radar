@@ -15,12 +15,15 @@ def main(limit: int = 10) -> int:
         print(f"crawl list failed: {exc}")
         return 0
 
+    inserted_count = 0
     with SessionLocal() as session:
         for notice in notices:
-            ingest_tender(session, notice)
+            created = ingest_tender(session, notice)
+            if created is not None:
+                inserted_count += 1
 
-    print(f"crawl complete: inserted {len(notices)} notices")
-    return len(notices)
+    print(f"crawl complete: inserted {inserted_count} notices")
+    return inserted_count
 
 
 def _parse_args() -> argparse.Namespace:

@@ -6,8 +6,10 @@ from app.models import Keyword, User
 DEFAULT_KEYWORDS = [
     ("不锈钢水箱", "A", 35),
     ("消防水箱", "A", 35),
+    ("SMC水箱", "A", 35),
+    ("二次供水水箱", "A", 35),
+    ("隔油器", "A", 35),
     ("二次供水", "B", 15),
-    ("隔油器", "D", 15),
 ]
 
 
