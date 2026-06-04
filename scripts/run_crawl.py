@@ -1,24 +1,34 @@
-from pathlib import Path
+import argparse
 
 from app.db import SessionLocal, init_db
-from app.services.crawler_source import parse_detail_html, parse_list_html
+from app.services.crawler_source import crawl_public_notices
 from app.services.ingest import ingest_tender
 
 
-def main() -> None:
+def main(limit: int = 10) -> int:
     init_db()
+    notices = []
 
-    list_html = Path("tests/fixtures/source/list.html").read_text(encoding="utf-8")
-    detail_html = Path("tests/fixtures/source/detail.html").read_text(encoding="utf-8")
-    items = parse_list_html(list_html)
+    try:
+        notices = crawl_public_notices(limit=limit)
+    except Exception as exc:
+        print(f"crawl list failed: {exc}")
+        return 0
 
     with SessionLocal() as session:
-        for item in items:
-            detail = parse_detail_html(detail_html, item["source_url"])
-            ingest_tender(session, detail)
+        for notice in notices:
+            ingest_tender(session, notice)
 
-    print("crawl complete")
+    print(f"crawl complete: inserted {len(notices)} notices")
+    return len(notices)
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Crawl real public tender notices")
+    parser.add_argument("--limit", type=int, default=10, help="maximum notices to ingest")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(limit=args.limit)
