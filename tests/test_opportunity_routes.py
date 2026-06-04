@@ -43,6 +43,36 @@ def seed_opportunity() -> Opportunity:
         return opportunity
 
 
+def seed_focus_opportunity() -> Opportunity:
+    with SessionLocal() as session:
+        tender = Tender(
+            source="fixture-source",
+            source_url="https://example.com/focus-opportunity-1",
+            title="华润项目消防水箱采购公告",
+            city="深圳",
+            buyer_name="华润置地（深圳）发展有限公司",
+            content="消防水箱采购",
+            content_hash="hash-focus-opportunity-1",
+        )
+        session.add(tender)
+        session.flush()
+
+        opportunity = Opportunity(
+            tender_id=tender.id,
+            score=80,
+            level="A",
+            reason="命中A类词:消防水箱，重点客户:华润系",
+            is_focus_account=True,
+            focus_company_name="华润置地（深圳）发展有限公司",
+            focus_company_group="华润系",
+            focus_match_field="buyer_name",
+        )
+        session.add(opportunity)
+        session.commit()
+        session.refresh(opportunity)
+        return opportunity
+
+
 def test_opportunity_list_requires_login() -> None:
     client = TestClient(app)
 
@@ -87,6 +117,45 @@ def test_opportunity_detail_shows_reason_content_and_follow_form() -> None:
         assert "采购内容包含不锈钢水箱安装与配套服务" in response.text
         assert f"/opportunities/{opportunity.id}/follow" in response.text
         assert "保存跟进备注" in response.text
+    finally:
+        clear_opportunities()
+
+
+def test_opportunity_list_can_filter_focus_accounts_only() -> None:
+    clear_opportunities()
+    client = TestClient(app)
+
+    try:
+        seed_focus_opportunity()
+        seed_opportunity()
+        login(client)
+
+        response = client.get("/opportunities?focus_only=1")
+
+        assert response.status_code == 200
+        assert "华润项目消防水箱采购公告" in response.text
+        assert "深圳市某医院不锈钢水箱采购项目" not in response.text
+        assert "重点客户" in response.text
+        assert "华润系" in response.text
+    finally:
+        clear_opportunities()
+
+
+def test_opportunity_detail_shows_focus_account_information() -> None:
+    clear_opportunities()
+    client = TestClient(app)
+
+    try:
+        opportunity = seed_focus_opportunity()
+        login(client)
+
+        response = client.get(f"/opportunities/{opportunity.id}")
+
+        assert response.status_code == 200
+        assert "重点客户" in response.text
+        assert "华润系" in response.text
+        assert "华润置地（深圳）发展有限公司" in response.text
+        assert "buyer_name" in response.text
     finally:
         clear_opportunities()
 

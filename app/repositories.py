@@ -20,13 +20,23 @@ def create_keyword(
     return keyword
 
 
-def list_opportunities(session: Session) -> list[Opportunity]:
-    return (
-        session.execute(
-            select(Opportunity)
-            .options(joinedload(Opportunity.tender))
-            .order_by(Opportunity.created_at.desc())
+def list_opportunities(
+    session: Session, *, focus_only: bool = False
+) -> list[Opportunity]:
+    stmt = (
+        select(Opportunity)
+        .options(joinedload(Opportunity.tender))
+        .order_by(
+            Opportunity.is_focus_account.desc(),
+            Opportunity.score.desc(),
+            Opportunity.created_at.desc(),
         )
+    )
+    if focus_only:
+        stmt = stmt.where(Opportunity.is_focus_account.is_(True))
+
+    return (
+        session.execute(stmt)
         .scalars()
         .all()
     )

@@ -16,17 +16,17 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("", response_class=HTMLResponse)
-def opportunity_list(request: Request):
+def opportunity_list(request: Request, focus_only: bool = False):
     if not is_logged_in(request):
         return RedirectResponse("/login", status_code=303)
 
     with SessionLocal() as session:
-        items = list_opportunities(session)
+        items = list_opportunities(session, focus_only=focus_only)
 
     return templates.TemplateResponse(
         request,
         "opportunities/list.html",
-        {"items": items},
+        {"items": items, "focus_only": focus_only},
     )
 
 

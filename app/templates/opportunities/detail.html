@@ -6,6 +6,11 @@
 <p>评分：{{ item.score }}</p>
 <p>等级：{{ item.level }}</p>
 <p>推荐原因：{{ item.reason }}</p>
+{% if item.is_focus_account %}
+<p>重点客户：{{ item.focus_company_group }}</p>
+<p>命中公司：{{ item.focus_company_name }}</p>
+<p>命中字段：{{ item.focus_match_field }}</p>
+{% endif %}
 <div>{{ item.tender.content }}</div>
 
 <h2>跟进备注</h2>

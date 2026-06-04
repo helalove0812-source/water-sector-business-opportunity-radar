@@ -2,6 +2,13 @@
 
 {% block content %}
 <h1>商机列表</h1>
+<form method="get" action="/opportunities">
+  <label>
+    <input type="checkbox" name="focus_only" value="1" {% if focus_only %}checked{% endif %} />
+    只看重点客户
+  </label>
+  <button type="submit">筛选</button>
+</form>
 <table>
   <thead>
     <tr>
@@ -14,7 +21,13 @@
   <tbody>
     {% for item in items %}
     <tr>
-      <td><a href="/opportunities/{{ item.id }}">{{ item.tender.title }}</a></td>
+      <td>
+        <a href="/opportunities/{{ item.id }}">{{ item.tender.title }}</a>
+        {% if item.is_focus_account %}
+        <div>重点客户</div>
+        <div>集团：{{ item.focus_company_group }}</div>
+        {% endif %}
+      </td>
       <td>{{ item.tender.city or "-" }}</td>
       <td>{{ item.score }}</td>
       <td>{{ item.level }}</td>
