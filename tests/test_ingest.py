@@ -147,6 +147,44 @@ def test_ingest_tender_skips_notice_when_only_city_matches() -> None:
             session.commit()
 
 
+def test_ingest_tender_persists_focus_account_metadata() -> None:
+    init_db()
+    detail = {
+        "source": "fixture-source",
+        "source_url": "https://example.com/focus-1",
+        "title": "华润置地深圳项目消防水箱采购公告",
+        "city": "深圳",
+        "publish_date": None,
+        "deadline": None,
+        "buyer_name": "华润置地（深圳）发展有限公司",
+        "agency_name": None,
+        "budget_amount": None,
+        "content": "项目采购消防水箱及安装服务",
+    }
+
+    with SessionLocal() as session:
+        session.query(Opportunity).delete()
+        session.query(Tender).delete()
+        session.query(Keyword).delete()
+        session.commit()
+
+        try:
+            session.add(Keyword(word="消防水箱", category="A", weight=35, enabled=True))
+            session.commit()
+
+            created = ingest_tender(session, detail)
+
+            assert created is not None
+            assert created.is_focus_account is True
+            assert created.focus_company_group == "华润系"
+            assert "重点客户" in created.reason
+        finally:
+            session.query(Opportunity).delete()
+            session.query(Tender).delete()
+            session.query(Keyword).delete()
+            session.commit()
+
+
 def test_run_crawl_main_fetches_real_source_and_skips_failed_details(monkeypatch) -> None:
     init_db()
 

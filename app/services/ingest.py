@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy import select
 
 from app.models import Keyword, Opportunity, Tender
+from app.services.focus_accounts import detect_focus_account
 from app.services.matcher import match_keywords
 from app.services.scorer import score_tender
 
@@ -36,7 +37,14 @@ def ingest_tender(session, tender_data: dict) -> Optional[Opportunity]:
     if not _has_required_a_match(matches):
         return None
 
+    focus_result = detect_focus_account(tender_data)
     result = score_tender(tender_data, matches)
+    if focus_result["is_focus_account"]:
+        focus_reason = f"重点客户:{focus_result['focus_company_group']}"
+        if focus_reason not in result["reason"]:
+            result["reason"] = "，".join(
+                part for part in [result["reason"], focus_reason] if part
+            )
     tender = session.execute(
         select(Tender).where(Tender.source_url == tender_data["source_url"])
     ).scalar_one_or_none()
@@ -63,6 +71,10 @@ def ingest_tender(session, tender_data: dict) -> Optional[Opportunity]:
     opportunity.level = result["level"]
     opportunity.reason = result["reason"]
     opportunity.matched_keywords = json.dumps(matches, ensure_ascii=False)
+    opportunity.is_focus_account = focus_result["is_focus_account"]
+    opportunity.focus_company_name = focus_result["focus_company_name"]
+    opportunity.focus_company_group = focus_result["focus_company_group"]
+    opportunity.focus_match_field = focus_result["focus_match_field"]
 
     session.commit()
     session.refresh(opportunity)
