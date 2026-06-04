@@ -136,3 +136,13 @@ def test_follow_note_redirects_to_detail_and_persists_log() -> None:
         assert follow_log.created_by == "admin"
     finally:
         clear_opportunities()
+
+
+def test_manual_crawl_endpoint_redirects_back_to_list_after_login() -> None:
+    client = TestClient(app)
+    login(client)
+
+    response = client.post("/crawl/run", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/opportunities"
